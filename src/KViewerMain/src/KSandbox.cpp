@@ -26,6 +26,45 @@ using namespace cv;
 
 namespace vrcl  {
 
+vector<double> get_good_color_0to7( int idx )
+{
+  double rgb[3];
+  switch( idx )
+  {
+  case 0:
+    rgb = {0,117,220}; // blue
+    break;
+  case 1:
+    rgb = {255,0,16}; // red
+    break;
+  case 2:
+    rgb = {43,206,72}; // green
+    break;
+  case 3:
+    rgb = {224,255,102}; // uranium
+    break;
+  case 4:
+    rgb = {194,0,136}; // mallow
+    break;
+  case 5:
+    rgb = {255,80,5}; // zinnia
+    break;
+  case 6:
+    rgb = {220, 163, 255}; // amethyst
+    break;
+  case 7:
+    rgb = {0,153,143}; // turquoise
+    break;
+  default:
+    rgb = {200,200,200};
+    break;
+  }
+  rgb[0] /= 255.0;
+  rgb[1] /= 255.0;
+  rgb[2] /= 255.0;
+  return std::vector<double>(rgb,rgb+3);
+}
+
 vtkSmartPointer<vtkImageData> image2ushort( vtkImageData* imageData )
 {
   int dims[3];
@@ -137,6 +176,10 @@ void check_extents( vtkImageData* input ) {
 
 SP(vtkLookupTable)  create_default_labelLUT( double maxVal, const std::vector<double>& rgb_primary )
 {
+  /**  Create the color lookup table for labels. Color is given as input, or a default used if it's empty.
+    *  Set opacity to be higher at the edge of label to show contour. "maxVal" should be on the order of
+    *  the image data being shown in conjunction with the label, probably from one to several thousand.
+    */
   double pR,pG,pB;
   if( rgb_primary.empty() ) {
     pR = 1.0; pG = 0.0; pG = 0.5;
@@ -146,9 +189,9 @@ SP(vtkLookupTable)  create_default_labelLUT( double maxVal, const std::vector<do
     pB = rgb_primary[2];
   }
   SP(vtkLookupTable) labelLUT = SP(vtkLookupTable)::New();
-  double mid[4]  = {pR,pG,pB,0.5};
-  double far[4]  = {pR,pG,pB,0.9};
-  double near[4] = {pR,pG,pB/2,0.4};
+  double mid[4]  = {pR,pG,pB,0.4};
+  double far[4]  = {pR,pG,pB,0.5};
+  double near[4] = {pR,pG,pB,0.3};
   double transparent[4] = {0,0,0,0};
   double main[4]         = {pR,pG,pB,0.3};
 
@@ -171,8 +214,10 @@ void setup_file_reader(Ptr<KViewerOptions> kv_opts, Ptr<KDataWarehouse> kv_data)
   //create two readers one for the image and one for the labels
   SP(vtkMetaImageReader) labelFileReader = SP(vtkMetaImageReader)::New();
   SP(vtkMetaImageReader) imgReader       = SP(vtkMetaImageReader)::New();
-  SP(vtkImageData)       label2D         = SP(vtkImageData)::New();
-  SP(vtkImageData)       image2D         = SP(vtkImageData)::New();
+  //Why does name contain "2D" when it ist storing 3D information??
+  // Gute Frage!
+  SP(vtkImageData)       label2D   ;//      = SP(vtkImageData)::New();
+  SP(vtkImageData)       image2D;//         = SP(vtkImageData)::New();
 
   //test if we can read each file
   int canReadLab = 0;               // try to read multiple labels later
@@ -185,7 +230,6 @@ void setup_file_reader(Ptr<KViewerOptions> kv_opts, Ptr<KDataWarehouse> kv_data)
       // TODO: return "fail" and have them re-select a file...
       exit(-1);
     }
-    cout<<"No User Input for Label, making a blank initial label..." << endl;
     imgReader->SetFileName(kv_opts->ImageArrayFilename.c_str());
     imgReader->SetDataScalarTypeToUnsignedShort();
     imgReader->Update();
@@ -193,6 +237,7 @@ void setup_file_reader(Ptr<KViewerOptions> kv_opts, Ptr<KDataWarehouse> kv_data)
     std::string byteOrderName( imgReader->GetDataByteOrderAsString() );
     std::cout << "byte orderness of " << kv_opts->ImageArrayFilename << ": " << byteOrderName << endl;
 
+    //?????
     // read the image file into the label array to force correct type & meta-data
     std::string fakeLabelFileName = kv_opts->ImageArrayFilename;
     labelFileReader->SetFileName( fakeLabelFileName.c_str() );
@@ -242,36 +287,45 @@ void setup_file_reader(Ptr<KViewerOptions> kv_opts, Ptr<KDataWarehouse> kv_data)
   dataSpacing[1]= imgReader->GetDataSpacing()[1];
   dataSpacing[2]= imgReader->GetDataSpacing()[2];
 
+  ///Difference between imageExtent and dataExtent variables???
   int* dataExtent         = imgReader->GetDataExtent();
   kv_opts->imageSpacing   = dataSpacing;
   kv_opts->numSlices      = dataExtent[5]-dataExtent[4]+1;
-  kv_opts->sliceZSpace    = kv_opts->imageSpacing[2];
+  kv_opts->sliceZSpace    = dataSpacing[2];
   kv_opts->sliderMin      = double(image2D->GetOrigin()[2]);
   kv_opts->sliderMax      = double(kv_opts->numSlices)*(kv_opts->imageSpacing)[2]
       + kv_opts->sliderMin;
-  kv_opts->imgHeight            = imgReader->GetHeight();
-  kv_opts->imgWidth            = imgReader->GetWidth();
+  kv_opts->imgHeight            = dataExtent[3]-dataExtent[2]+1;
+  kv_opts->imgWidth            = dataExtent[1]-dataExtent[0]+1;
 
   kv_opts->minIntensity        = image2D->GetScalarRange()[0]*1.1;
   kv_opts->maxIntensity        = image2D->GetScalarRange()[1];
 
   std::vector<double> imgOrigin(3);
-  memcpy( &(imgOrigin[0]), imgReader->GetDataOrigin(), 3 * sizeof(double) );
+  memcpy( &(imgOrigin[0]), image2D->GetOrigin(), 3 * sizeof(double) );
   kv_opts->imageOrigin    = imgOrigin;
   std::vector<int> imgExtent(6);
-  memcpy( &(imgExtent[0]), imgReader->GetDataExtent(), 6 * sizeof(int) );
+  memcpy( &(imgExtent[0]), image2D->GetExtent(), 6 * sizeof(int) );
   kv_opts->imageExtent    = imgExtent;
   cout << "image origin and extent: " << Mat( imgOrigin )
        << " ... " << Mat( imgExtent ) << endl;
 
+  //Should not be here!
+  kv_data->imageVolumeRaw = vtkSmartPointer<vtkImageData>::New();
+  kv_data->labelDataArray = vtkSmartPointer<vtkImageData>::New();
+
   bool forceToUShort      = true;
   if( !forceToUShort ) {
-    kv_data->imageVolumeRaw = image2D ;
-    kv_data->labelDataArray = label2D ;
+    kv_data->UpdateRawImage(image2D) ;
+    kv_data->UpdateLabelDataArray( label2D) ;
   } else {
-    kv_data->imageVolumeRaw = image2ushort( image2D );
-    kv_data->labelDataArray = image2ushort( label2D );
+    kv_data->UpdateRawImage( image2ushort( image2D ));
+    kv_data->UpdateLabelDataArray( image2ushort( label2D ));
   }
+  kv_opts->m_Center[0]= (kv_opts->imageExtent[1]*kv_opts->imageSpacing[0]-kv_opts->imageExtent[0]*kv_opts->imageSpacing[0])*0.5;
+  kv_opts->m_Center[1]= (kv_opts->imageExtent[3]*kv_opts->imageSpacing[1]-kv_opts->imageExtent[2]*kv_opts->imageSpacing[1])*0.5;
+  kv_opts->m_Center[2]= (kv_opts->imageExtent[5]*kv_opts->imageSpacing[2]-kv_opts->imageExtent[4]*kv_opts->imageSpacing[2])*0.5;
+
 
   cout<<"ImageArrayFilename: "<<kv_opts->ImageArrayFilename<<"\n";
 

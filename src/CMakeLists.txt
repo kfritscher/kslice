@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project(KSliceModules)
+project(KSlice3D)
 
 find_package(VTK)
 IF(NOT VTK_DIR)
@@ -31,7 +31,7 @@ set(DATA_PATH ${CMAKE_SOURCE_DIR}/../data CACHE PATH  "data folder")
 execute_process(COMMAND "sh"  ${SCRIPT_PATH}/link_build_dir_to_scripts_and_data.sh  "
                 ${CMAKE_SOURCE_DIR}"  "${CMAKE_BINARY_DIR}"   "${SCRIPT_PATH}"  ${DATA_PATH})
 
-set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "configuration (default: Debug)" FORCE)
+set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "configuration (default: Debug)")
 set(BUILD_QTGUI_DEMO_SH  CACHE bool false)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
@@ -97,7 +97,7 @@ set( KSlice_include  ${CMAKE_CURRENT_SOURCE_DIR}/util/getopt
                      ${CMAKE_CURRENT_SOURCE_DIR}/Gao3DRSS/include
                      ${CMAKE_CURRENT_SOURCE_DIR}/sfm_local_chanvese/include
                      ${CMAKE_CURRENT_SOURCE_DIR}/MeshCurvolver-2.0/include
-                     ${CMAKE_CURRENT_SOURCE_DIR}/VTKtoITKConnection/include
+                    # ${CMAKE_CURRENT_SOURCE_DIR}/VTKtoITKConnection/include
    )
 
 
@@ -107,18 +107,18 @@ include_directories(
         ${KSlice_include}
 )
 
-add_subdirectory(util/getopt)
+add_subdirectory(util/getopt)  # DEPRECATED, Use boost::program_options instead, or raw argv[k] when lazy
 add_subdirectory(util/vrcl)
 add_subdirectory(KViewerMain)
-add_subdirectory(SampleApplications/VolumeRenderDemo)
+add_subdirectory(SampleApplications)
 add_subdirectory(KSegmentor)
 
 set(BUILD_ITK_DEPENDENT_STUFF  CACHE bool false)
 if(${BUILD_ITK_DEPENDENT_STUFF})
   message(STATUS "   found ITK, building with it! " )
-  add_subdirectory(Gao3DRSS)
-  add_subdirectory(SampleApplications/MHADecompressor)
   add_subdirectory(SampleApplications/Make3DModel)
+  #add_subdirectory(Gao3DRSS)
+  #add_subdirectory(SampleApplications/MHADecompressor)
 else(${BUILD_ITK_DEPENDENT_STUFF})
   message(STATUS "   no ITK for you " )
 endif(${BUILD_ITK_DEPENDENT_STUFF})

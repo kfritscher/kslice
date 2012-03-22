@@ -11,8 +11,9 @@
 #include "KViewerOptions.h"
 #include "KDataWarehouse.h"
 #include "vtkInteractorStyleImage.h"
-#include "KSegmentor.h"
+#include "KSegmentorBase.h"
 #include "KInteractiveLabelMap.h"
+#include "vtkTransform.h"
 
 using  cv::Ptr;
 class  QVTKWidget;
@@ -21,6 +22,7 @@ class  vtkLookupTable;
 
 class KWidget_2D_left
 {
+
 public:
   KWidget_2D_left( QVTKWidget *qVTK_widget_left );
   virtual ~KWidget_2D_left( ) { }
@@ -30,21 +32,22 @@ public:
   vtkSmartPointer<vtkImageActor>          imageActor;
   vtkSmartPointer<vtkImageActor>          labelActor2D;
 
-  // Does this belong in kv_data !?
+
   std::vector< Ptr<KInteractiveLabelMap> > multiLabelMaps;
   int activeLabelMapIndex; // which label is being functed
 
   int currentSliceIndex;   // which slice we're viewing now
+  int m_CurrentSliceOrigin; // currentSliceIndex in "world coordinates"
   int cacheSliceIndex;     // stored for copy/paste operations on 'c' key
 
   // handle on the QT object, primarily to do update() after some computations
   QVTKWidget *qVTK_widget_left;
 
+  // contains the 'saturation lookup table', sets windowing range
+  vtkSmartPointer<vtkImageMapToColors> colorMap;
+
   // update the scaling/display of image slice data in 2D
   vtkSmartPointer<vtkImageReslice>        imageReslicer;
-
-  // update the scaling/display of label data in 2D
-  vtkSmartPointer<vtkImageReslice>        labelReslicer;
 
   // TODO: probably should be encapsulated lower problem is the 'thresholdReslicer' wants it
   vtkSmartPointer<vtkLookupTable>         labelLUT;
@@ -69,7 +72,7 @@ public:
   // handles to data objects and file IO
   cv::Ptr<KDataWarehouse>                  kv_data;
 
-  // written to during mouse callbacks, QT side can put in a QString.
+  // written to during ^ouse callbacks, QT side can put in a QString.
   std::string mouse_position_string;
 
   /** Save the current label map to a unique (time-stamped) file name, .mha format */
@@ -85,6 +88,7 @@ public:
     * connected to a QTVTK widget and interactor
     */
   void Initialize( Ptr<KViewerOptions> kv_opts, Ptr<KDataWarehouse> kv_data );
+  void InitializeTransform(char trans=' ',float angle=90);
 
 
   // Callbacks
@@ -119,17 +123,33 @@ Multiple Label Maps
   /** for every labelmap, copy & paste from index A to index B */ 
   void CopyLabelsFromTo( int iFrom, int iTo, bool bPasteAll = false );
 
-  void RunSegmentor( int slice_index = -1, bool bAllLabels = false );
+  void RunSegmentor( int slice_index = -1, bool bAllLabels = false, bool use2D=true );
  
   /** called internally when a display update is needed,
       such as when a new labelmap is created */
-  void UpdateMultiLabelMapDisplay( );
+  void UpdateMultiLabelMapDisplay( bool UpdateTransform=false );
+
+  void UpdateTransform();
 
   /** get the one that's being "edited" now */
   vtkSmartPointer<vtkImageData> GetActiveLabelMap( );
 
   static const std::string VERBOSE;
 
+  std::vector<double> GetOutputSpacing()
+  {
+    if( m_OutputSpacing.size() != 3 ) {
+      m_OutputSpacing = std::vector<double>(3,1.0);
+    }
+    for( int k = 0; k < 3; k++ ) {
+      m_OutputSpacing[k] = kv_opts->imageSpacing[k];
+    }
+    std::cout << "widget2D output spacing = " << cv::Mat( m_OutputSpacing ) << std::endl;
+    return m_OutputSpacing;
+  }
+
+ ///TODO: make private
+vtkTransform* m_SliderTrans;
 private:
 
   /**  no copying!  */
@@ -137,12 +157,22 @@ private:
   KWidget_2D_left & operator=(const KWidget_2D_left &rhs);
   KWidget_2D_left( );
 
+  vtkSmartPointer<vtkLookupTable> satLUT;
+  vtkSmartPointer<vtkImageShiftScale> intensShift;
+
+  bool bNoInputLabelFiles;
+  std::vector<double> m_OutputSpacing;
+
+
+
+
   /** internal common code for saving label files */
   void SaveLabelsInternal( const std::stringstream& ss );
 
   void SetupRenderWindow();
-  void SetupImageDisplay();
+  void SetupImageDisplay(bool transformUpdate=false);
   void SetupLabelDisplay();
+
 };
 
 

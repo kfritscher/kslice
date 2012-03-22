@@ -32,6 +32,8 @@
 #include  "GUISetup.h"
 #include  "KWidget_2D_left.h"
 #include  "KWidget_3D_right.h"
+#include "vtkRegularPolygonSource.h"
+#include "vtkProperty.h"
 
 class vtkImageThreshold;
 class vtkRenderer;
@@ -45,6 +47,11 @@ using cv::Ptr;
 class KViewer : public QMainWindow , public Ui::GUI
 {
   Q_OBJECT
+
+    vtkSmartPointer<vtkPolyDataMapper> m_CircleMapper;
+    vtkSmartPointer<vtkActor> m_CircleActor;
+    vtkSmartPointer<vtkRegularPolygonSource> m_Circle;
+
 public:
   KViewer( ) { }
   KViewer( const KViewerOptions& input_options);
@@ -60,6 +67,7 @@ public slots:
   /**  \brief Handle slider update and show new slice in QVTK window
     */
   void SliceSelect(int SliderVal);
+  void SliderCB( int sliceNum );
 
   /**  \brief Callback for 'click on toggle draw/erase button'
     */
@@ -135,6 +143,22 @@ public slots:
   /** move the slider and update everything by +/- amount */
   void MoveSlider( int shiftNumberOfSlices = 0 );
 
+  void SetCircleCursorSize(unsigned int size){
+      this->m_Circle->SetRadius(size);
+  }
+
+  void SetCircleCursorOpacity(float opacity)
+  {
+      this->m_CircleActor->GetProperty()->SetOpacity(opacity);
+  }
+
+  Ptr<KWidget_3D_right> Get3DWidget()
+  {
+      return kwidget_3d_right;
+  }
+
+  void ResetRotation(bool rotX,bool rotY, bool rotZ);
+
 protected:
   vtkSmartPointer<vtkEventQtSlotConnect>  Connections;
   vtkSmartPointer<KvtkImageInteractionCallback> image_callback;
@@ -146,7 +170,13 @@ protected:
   Ptr<KWidget_2D_left>   kwidget_2d_left;
   Ptr<KWidget_3D_right>  kwidget_3d_right;
 
+
   clock_t t1, t2;
+
+  /** \brief Creates circle cursor
+    */
+  void InitializeCircleCursor();
+
 
   /** \brief Setup slot/signal connections for GUI to fire the member functions
     */
@@ -156,6 +186,12 @@ protected:
     *  LUT, slider based on the data file read. Called on startup and file loading.
     */
   void setupQVTKandData( );
+
+  /** \brief Update image information after transformation
+    */
+  void UpdateImageInformation(vtkImageData* image);
+
+  bool m_RotX,m_RotY,m_RotZ,m_FlipZ;
 
 };
 

@@ -21,7 +21,7 @@
 #include <vtkMath.h>
 #include <cmath>
 #include <vector>
-#include "KSegmentor.h"
+#include "KSegmentorBase.h"
 
 #define SP( X )  vtkSmartPointer<X> 
 using namespace std;
@@ -142,7 +142,7 @@ SP(vtkImageData) mergeLabelMaps( const std::vector<SP(vtkImageData)> & multiLabe
     imgData->GetSpacing(spc);
     vector<double> spacing(spc,spc+3);
     string strVolume;
-    vrcl::getVolumeAsString(spacing,imgData,strVolume);
+    vrcl::getVolumeAsString(spacing,imgData,strVolume,true);
     volume_info[k].volume_string = strVolume;
 
     imgData->GetDimensions( dims );

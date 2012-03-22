@@ -4,7 +4,7 @@
 #include "vtkPiecewiseFunction.h"
 #include "vtkColorTransferFunction.h"
 #include "vtkVolumeProperty.h"
-#include "vtkVolumeRayCastMapper.h"
+#include "vtkGPUVolumeRayCastMapper.h"
 #include "vtkVolumeRayCastCompositeFunction.h"
 #include "vtkVolume.h"
 #include "vtkRenderer.h"
@@ -14,6 +14,8 @@
 #include "vtkMetaImageReader.h"
 #include <vtkMath.h>
 #include <cmath>
+
+#include "vtkInteractorObserver.h"
 
 #define SP( X )  vtkSmartPointer<X> 
 
@@ -126,13 +128,16 @@ int main( int argc, char **argv)
   } 
   
   double imgRange[2];
-  imageData->GetScalarRange( imgRange );
-  
+ //imageData->GetScalarRange( imgRange );
+  imgRange[0]=-10000;
+  imgRange[1]=10000;
   vtkPiecewiseFunction *opacityTranferFunction = vtkPiecewiseFunction::New();
 
-  opacityTranferFunction->AddPoint( imgRange[1],     0.5);
-  opacityTranferFunction->AddPoint( imgRange[1]*0.5, 0.3);
-  opacityTranferFunction->AddPoint( imgRange[0],     0.05);
+  opacityTranferFunction->AddPoint( imgRange[1],   0.5);
+  opacityTranferFunction->AddPoint( imgRange[1]*0.85, 0.3);
+  opacityTranferFunction->AddPoint( 400,     0.);
+  opacityTranferFunction->AddPoint( imgRange[0],     0.8);
+  opacityTranferFunction->AddPoint( -400,     0.1);
 
   std::vector<double> v(5);
   for( int k = 0; k < (int) v.size(); k++ ) {
@@ -143,28 +148,29 @@ int main( int argc, char **argv)
   //
   SP(vtkColorTransferFunction) colorTransferFunction = SP(vtkColorTransferFunction)::New();
   colorTransferFunction->AddRGBPoint(   v[0], 1.0, 1.0, 1.0);
-  colorTransferFunction->AddRGBPoint(   v[1], 0.5, 0.5, 0.5);
-  colorTransferFunction->AddRGBPoint(   v[2], 0.5, 0.5, 0.5);
+  colorTransferFunction->AddRGBPoint(   v[1], 0.2, 0.5, 0.5);
+  colorTransferFunction->AddRGBPoint(   v[2], 0.8, 0.5, 0.5);
   colorTransferFunction->AddRGBPoint(   v[3], 1.0, 0.0, 0.0);
   colorTransferFunction->AddRGBPoint(   v[4], 1.0, 0.0, 1.0);
 
   //
   SP(vtkVolumeProperty) volumeProperty = SP(vtkVolumeProperty)::New();
   volumeProperty->SetColor(colorTransferFunction);
-  volumeProperty->SetGradientOpacity( opacityTranferFunction );
-  //volumeProperty->SetScalarOpacity(opacityTranferFunction);
+  //volumeProperty->SetGradientOpacity( opacityTranferFunction );
+  volumeProperty->SetScalarOpacity(opacityTranferFunction);
   volumeProperty->ShadeOn();
   volumeProperty->SetInterpolationTypeToLinear();
 
   //
   SP(vtkVolumeRayCastCompositeFunction) compositeFunction = 
                SP( vtkVolumeRayCastCompositeFunction)::New();
-  SP(vtkVolumeRayCastMapper) volumeMapper = SP(vtkVolumeRayCastMapper)::New();
-  volumeMapper->SetVolumeRayCastFunction(compositeFunction);
+  SP(vtkGPUVolumeRayCastMapper) volumeMapper = SP(vtkGPUVolumeRayCastMapper)::New();
+  volumeMapper->SetBlendModeToComposite();//SetVolumeRayCastFunction(compositeFunction);
 
   volumeMapper->SetInput( imageData );
 
   volumeMapper->Update( );
+
 
   //
   vtkVolume *volume = vtkVolume::New();
@@ -178,8 +184,12 @@ int main( int argc, char **argv)
   vtkRenderWindowInteractor *renderWindowInteractor = vtkRenderWindowInteractor ::New();
   renderWindowInteractor->SetRenderWindow(renWin);
 
+
+
+  renderWindowInteractor->GetInteractorStyle()->SetDefaultRenderer(ren1);
   ren1->AddVolume(volume);
-  ren1->Render();
+
+  renWin->Render();
   renderWindowInteractor->Start();
 
   return 0;

@@ -5,6 +5,7 @@
 #include <vector>
 #include "vtkSmartPointer.h"
 #include "vtkMetaImageReader.h"
+#include "vtkTransform.h"
 
 struct KViewerOptions
 {
@@ -12,6 +13,10 @@ public:
   static double getDefaultDrawLabelMaxVal() {
     return 1000.0;
   }
+private:
+
+  vtkSmartPointer<vtkTransform> m_Transform;
+
 
 public:
   int     numSlices;
@@ -23,20 +28,29 @@ public:
   int     paintBrushRad;
   double  paintBrushThreshold; 
   int     loadImageTrigger;
-  float     seg_time_interval;
+  float     seg_time_interval; // time between auto-run segmentation
+  float    distWeight;         // slow down speed away from view/edit plane
+  float    m_ThreshWeight;       // post-truncate segmentation based on image values
+  double m_Center[3];
+  float m_CurrentAngle;
+  double* m_PlaneNormalVector;
+  double m_PlaneCenter[3];
 
-  //vtkSmartPointer<vtkMetaImageReader> labelFileReader;
 
   std::vector<std::string> LabelArrayFilenames;
   std::string ImageArrayFilename;
+  std::string m_SpeedImageFileName;
 
   float modelOpacity3D;
   float labelOpacity2D;
   bool  labelInterpolate;
   bool  writeCompressed;
-  bool time_triggered_seg_update;
+  bool  m_bUseEdgeBased;
+  bool  m_bResampleImageAtStartupToCubicVoxels;
+  bool  time_triggered_seg_update;
   int   minIntensity;
   int   maxIntensity;
+  int   m_DrawSpreadOffViewPlane;
 
   double drawLabelMaxVal; // value of "inside" labelmap
   int    segmentor_iters; // # of curve evolution update iterations
@@ -70,6 +84,21 @@ void LoadLabel(const std::string& loadLabel);
 void PrintLogo( );
 
 int GetBrushSize();
+
+void InitializeTransform()
+{
+    this->m_Transform =vtkSmartPointer<vtkTransform>::New();
+}
+
+vtkSmartPointer<vtkTransform> GetTransform()
+{
+  if( NULL == m_Transform ) {
+    std::cout << "warning, attempted to get null transform... initializing now." << std::endl;
+    m_Transform = vtkSmartPointer<vtkTransform>::New();
+    m_Transform->Identity();
+  }
+  return m_Transform;
+}
 
 
 

@@ -20,6 +20,8 @@ using cv::Ptr;
 
 namespace vrcl {
 
+  std::vector<double> get_good_color_0to7( int idx );
+
   vtkSmartPointer<vtkImageData> image2ushort( vtkImageData* imageData );
   
   void multiplyImageByLabels( vtkImageData* imgData, vtkImageData* lblData );
@@ -47,7 +49,28 @@ namespace vrcl {
               const std::vector<double>& rgb_primary = std::vector<double>()  );
 
 
+  template<class InputType>
+  vtkSmartPointer<vtkImageData> createVTKImageFromPointer(InputType* imagePointer, int* dims, double spacing[3])
+  {
+      vtkSmartPointer<vtkImageData> imgvol = vtkSmartPointer<vtkImageData>::New( );
+      imgvol->SetDimensions( dims[0],dims[1],dims[2] );
+      imgvol->SetNumberOfScalarComponents(1);
+      imgvol->SetSpacing( spacing );
+      imgvol->SetOrigin( 0,0,0 );
+      imgvol->SetScalarTypeToDouble( );
+      imgvol->AllocateScalars( );
+      double* outputImgPointer=static_cast<double*>(imgvol->GetScalarPointer());
+      long element=0;
 
+      for (int k=0; k<dims[0]; k++) {
+          for (int j=0; j<dims[1]; j++)  {
+              for (int i=0; i<dims[2]; i++, element++) {
+                  outputImgPointer[element]=imagePointer[element];
+              }
+          }
+      }
+      return imgvol;
+  }
 }
 
 #endif
